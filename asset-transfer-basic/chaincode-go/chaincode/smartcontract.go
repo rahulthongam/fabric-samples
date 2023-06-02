@@ -3,192 +3,197 @@ package chaincode
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
-// SmartContract provides functions for managing an Asset
+// SmartContract provides functions for managing bank accounts
 type SmartContract struct {
 	contractapi.Contract
 }
 
-// Asset describes basic details of what makes up a simple asset
-// Insert struct field in alphabetic order => to achieve determinism across languages
-// golang keeps the order when marshal to json but doesn't order automatically
-type Asset struct {
-	AppraisedValue int    `json:"AppraisedValue"`
-	Color          string `json:"Color"`
-	ID             string `json:"ID"`
-	Owner          string `json:"Owner"`
-	Size           int    `json:"Size"`
+// Account describes the basic details of a bank account
+type Account struct {
+	ID        string  `json:"ID"`
+	Owner     string  `json:"Owner"`
+	Balance   float64 `json:"Balance"`
 }
 
-// InitLedger adds a base set of assets to the ledger
+// InitLedger adds a base set of accounts to the ledger
 func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) error {
-	assets := []Asset{
-		{ID: "asset1", Color: "blue", Size: 5, Owner: "Tomoko", AppraisedValue: 300},
-		{ID: "asset2", Color: "red", Size: 5, Owner: "Brad", AppraisedValue: 400},
-		{ID: "asset3", Color: "green", Size: 10, Owner: "Jin Soo", AppraisedValue: 500},
-		{ID: "asset4", Color: "yellow", Size: 10, Owner: "Max", AppraisedValue: 600},
-		{ID: "asset5", Color: "black", Size: 15, Owner: "Adriana", AppraisedValue: 700},
-		{ID: "asset6", Color: "white", Size: 15, Owner: "Michel", AppraisedValue: 800},
+	accounts := []Account{
+		{ID: "account1", Owner: "Tomoko", Balance: 1000.0},
+		{ID: "account2", Owner: "Brad", Balance: 2000.0},
+		{ID: "account3", Owner: "Jin Soo", Balance: 3000.0},
+		{ID: "account4", Owner: "Max", Balance: 4000.0},
+		{ID: "account5", Owner: "Adriana", Balance: 5000.0},
+		{ID: "account6", Owner: "Michel", Balance: 6000.0},
 	}
 
-	for _, asset := range assets {
-		assetJSON, err := json.Marshal(asset)
+	for _, account := range accounts {
+		accountJSON, err := json.Marshal(account)
 		if err != nil {
 			return err
 		}
 
-		err = ctx.GetStub().PutState(asset.ID, assetJSON)
+		err = ctx.GetStub().PutState(account.ID, accountJSON)
 		if err != nil {
-			return fmt.Errorf("failed to put to world state. %v", err)
+			return fmt.Errorf("failed to put to world state: %v", err)
 		}
 	}
 
 	return nil
 }
 
-// CreateAsset issues a new asset to the world state with given details.
-func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, id string, color string, size int, owner string, appraisedValue int) error {
-	exists, err := s.AssetExists(ctx, id)
+// CreateAccount creates a new bank account with the given details.
+func (s *SmartContract) CreateAccount(ctx contractapi.TransactionContextInterface, id string, owner string, balance float64) error {
+	exists, err := s.AccountExists(ctx, id)
 	if err != nil {
 		return err
 	}
 	if exists {
-		return fmt.Errorf("the asset %s already exists", id)
+		return fmt.Errorf("the account %s already exists", id)
 	}
 
-	asset := Asset{
-		ID:             id,
-		Color:          color,
-		Size:           size,
-		Owner:          owner,
-		AppraisedValue: appraisedValue,
+	account := Account{
+		ID:      id,
+		Owner:   owner,
+		Balance: balance,
 	}
-	assetJSON, err := json.Marshal(asset)
+	accountJSON, err := json.Marshal(account)
 	if err != nil {
 		return err
 	}
 
-	return ctx.GetStub().PutState(id, assetJSON)
+	return ctx.GetStub().PutState(id, accountJSON)
 }
 
-// ReadAsset returns the asset stored in the world state with given id.
-func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, id string) (*Asset, error) {
-	assetJSON, err := ctx.GetStub().GetState(id)
+// ReadAccount returns the account stored in the world state with the given id.
+func (s *SmartContract) ReadAccount(ctx contractapi.TransactionContextInterface, id string) (*Account, error) {
+	accountJSON, err := ctx.GetStub().GetState(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read from world state: %v", err)
 	}
-	if assetJSON == nil {
-		return nil, fmt.Errorf("the asset %s does not exist", id)
+	if accountJSON == nil {
+		return nil, fmt.Errorf("the account %s does not exist", id)
 	}
 
-	var asset Asset
-	err = json.Unmarshal(assetJSON, &asset)
+	var account Account
+	err = json.Unmarshal(accountJSON, &account)
 	if err != nil {
 		return nil, err
 	}
 
-	return &asset, nil
+	return &account, nil
 }
 
-// UpdateAsset updates an existing asset in the world state with provided parameters.
-func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface, id string, color string, size int, owner string, appraisedValue int) error {
-	exists, err := s.AssetExists(ctx, id)
+// UpdateAccount updates an existing account in the world state with the provided parameters.
+func (s *SmartContract) UpdateAccount(ctx contractapi.TransactionContextInterface, id string, owner string, balance float64) error {
+	exists, err := s.AccountExists(ctx, id)
 	if err != nil {
 		return err
 	}
 	if !exists {
-		return fmt.Errorf("the asset %s does not exist", id)
+		return fmt.Errorf("the account %s does not exist", id)
 	}
 
-	// overwriting original asset with new asset
-	asset := Asset{
-		ID:             id,
-		Color:          color,
-		Size:           size,
-		Owner:          owner,
-		AppraisedValue: appraisedValue,
+	account := Account{
+		ID:      id,
+		Owner:   owner,
+		Balance: balance,
 	}
-	assetJSON, err := json.Marshal(asset)
+	accountJSON, err := json.Marshal(account)
 	if err != nil {
 		return err
 	}
 
-	return ctx.GetStub().PutState(id, assetJSON)
+	return ctx.GetStub().PutState(id, accountJSON)
 }
 
-// DeleteAsset deletes an given asset from the world state.
-func (s *SmartContract) DeleteAsset(ctx contractapi.TransactionContextInterface, id string) error {
-	exists, err := s.AssetExists(ctx, id)
+// DeleteAccount deletes the given account from the world state.
+func (s *SmartContract) DeleteAccount(ctx contractapi.TransactionContextInterface, id string) error {
+	exists, err := s.AccountExists(ctx, id)
 	if err != nil {
 		return err
 	}
 	if !exists {
-		return fmt.Errorf("the asset %s does not exist", id)
+		return fmt.Errorf("the account %s does not exist", id)
 	}
 
 	return ctx.GetStub().DelState(id)
 }
 
-// AssetExists returns true when asset with given ID exists in world state
-func (s *SmartContract) AssetExists(ctx contractapi.TransactionContextInterface, id string) (bool, error) {
-	assetJSON, err := ctx.GetStub().GetState(id)
+// AccountExists returns true when an account with the given ID exists in the world state.
+func (s *SmartContract) AccountExists(ctx contractapi.TransactionContextInterface, id string) (bool, error) {
+	accountJSON, err := ctx.GetStub().GetState(id)
 	if err != nil {
 		return false, fmt.Errorf("failed to read from world state: %v", err)
 	}
 
-	return assetJSON != nil, nil
+	return accountJSON != nil, nil
 }
 
-// TransferAsset updates the owner field of asset with given id in world state, and returns the old owner.
-func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterface, id string, newOwner string) (string, error) {
-	asset, err := s.ReadAsset(ctx, id)
-	if err != nil {
-		return "", err
-	}
-
-	oldOwner := asset.Owner
-	asset.Owner = newOwner
-
-	assetJSON, err := json.Marshal(asset)
-	if err != nil {
-		return "", err
-	}
-
-	err = ctx.GetStub().PutState(id, assetJSON)
-	if err != nil {
-		return "", err
-	}
-
-	return oldOwner, nil
-}
-
-// GetAllAssets returns all assets found in world state
-func (s *SmartContract) GetAllAssets(ctx contractapi.TransactionContextInterface) ([]*Asset, error) {
-	// range query with empty string for startKey and endKey does an
-	// open-ended query of all assets in the chaincode namespace.
+// GetAllAccounts returns all accounts found in the world state.
+func (s *SmartContract) GetAllAccounts(ctx contractapi.TransactionContextInterface) ([]*Account, error) {
 	resultsIterator, err := ctx.GetStub().GetStateByRange("", "")
 	if err != nil {
 		return nil, err
 	}
 	defer resultsIterator.Close()
 
-	var assets []*Asset
+	var accounts []*Account
 	for resultsIterator.HasNext() {
 		queryResponse, err := resultsIterator.Next()
 		if err != nil {
 			return nil, err
 		}
 
-		var asset Asset
-		err = json.Unmarshal(queryResponse.Value, &asset)
+		var account Account
+		err = json.Unmarshal(queryResponse.Value, &account)
 		if err != nil {
 			return nil, err
 		}
-		assets = append(assets, &asset)
+
+		accounts = append(accounts, &account)
 	}
 
-	return assets, nil
+	return accounts, nil
+}
+
+// TransferFunds transfers funds from one account to another.
+func (s *SmartContract) TransferFunds(ctx contractapi.TransactionContextInterface, fromID string, toID string, amount float64) error {
+	fromAccount, err := s.ReadAccount(ctx, fromID)
+	if err != nil {
+		return err
+	}
+	toAccount, err := s.ReadAccount(ctx, toID)
+	if err != nil {
+		return err
+	}
+
+	if fromAccount.Balance < amount {
+		return fmt.Errorf("insufficient funds in the account %s", fromID)
+	}
+
+	fromAccount.Balance -= amount
+	toAccount.Balance += amount
+
+	fromAccountJSON, err := json.Marshal(fromAccount)
+	if err != nil {
+		return err
+	}
+	err = ctx.GetStub().PutState(fromID, fromAccountJSON)
+	if err != nil {
+		return err
+	}
+
+	toAccountJSON, err := json.Marshal(toAccount)
+	if err != nil {
+		return err
+	}
+	err = ctx.GetStub().PutState(toID, toAccountJSON)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
